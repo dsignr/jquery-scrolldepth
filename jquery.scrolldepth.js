@@ -1,6 +1,6 @@
 /*!
  * @preserve
- * jquery.scrolldepth.js | v0.9.1
+ * jquery.scrolldepth.js | v1.0
  * Copyright (c) 2016 Rob Flaherty (@robflaherty)
  * Licensed under the MIT and GPL licenses.
  */
@@ -32,7 +32,9 @@
       pixelDepth: true,
       nonInteraction: true,
       gaGlobal: false,
-      gtmOverride: false
+      gtmOverride: false,
+      trackerName: false,
+      dataLayer: 'dataLayer'
     };
 
     var $window = $(window),
@@ -42,6 +44,7 @@
       universalGA,
       classicGA,
       gaGlobal,
+      globalSiteTag,
       standardEventHandler;
 
     /*
@@ -67,6 +70,9 @@
       if (options.gaGlobal) {
         universalGA = true;
         gaGlobal = options.gaGlobal;
+      } else if (typeof gtag === "function") {
+        globalSiteTag = true;
+        gaGlobal = 'gtag';
       } else if (typeof ga === "function") {
         universalGA = true;
         gaGlobal = 'ga';
@@ -81,10 +87,10 @@
 
       if (typeof options.eventHandler === "function") {
         standardEventHandler = options.eventHandler;
-      } else if (typeof dataLayer !== "undefined" && typeof dataLayer.push === "function" && !options.gtmOverride) {
+      } else if (typeof window[options.dataLayer] !== "undefined" && typeof window[options.dataLayer].push === "function" && !options.gtmOverride) {
 
         standardEventHandler = function(data) {
-          dataLayer.push(data);
+          window[options.dataLayer].push(data);
         };
       }
 
@@ -93,6 +99,8 @@
        */
 
       function sendEvent(action, label, scrollDistance, timing) {
+
+        var command = options.trackerName ? (options.trackerName + '.send') : 'send';
 
         if (standardEventHandler) {
 
@@ -107,19 +115,27 @@
             standardEventHandler({'event': 'ScrollTiming', 'eventCategory': 'Scroll Depth', 'eventAction': action, 'eventLabel': label, 'eventTiming': timing});
           }
 
+          if (globalSiteTag) {
+            gtag('event', 'scroll_depth', {
+              'category': 'Scroll Depth',
+              'scroll_distance': label,
+              'px_distance': scrollDistance
+            });
+          }
+
         } else {
 
           if (universalGA) {
 
-            window[gaGlobal]('send', 'event', 'Scroll Depth', action, label, 1, {'nonInteraction': options.nonInteraction});
+            window[gaGlobal](command, 'event', 'Scroll Depth', action, label, 1, {'nonInteraction': options.nonInteraction});
 
             if (options.pixelDepth && arguments.length > 2 && scrollDistance > lastPixelDepth) {
               lastPixelDepth = scrollDistance;
-              window[gaGlobal]('send', 'event', 'Scroll Depth', 'Pixel Depth', rounded(scrollDistance), 1, {'nonInteraction': options.nonInteraction});
+              window[gaGlobal](command, 'event', 'Scroll Depth', 'Pixel Depth', rounded(scrollDistance), 1, {'nonInteraction': options.nonInteraction});
             }
 
             if (options.userTiming && arguments.length > 3) {
-              window[gaGlobal]('send', 'timing', 'Scroll Depth', action, timing, label);
+              window[gaGlobal](command, 'timing', 'Scroll Depth', action, timing, label);
             }
 
           }
@@ -317,5 +333,8 @@
       init();
 
     };
+
+    // UMD export
+    return $.scrollDepth;
 
 }));
